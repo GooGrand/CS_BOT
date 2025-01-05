@@ -9,7 +9,7 @@ from all_kb import (
     SEE_INCOME,
     OPEN,
     GET_MONTH_SALARY,
-    select_item_markup,
+    create_markup,
     select_item_buttons,
     ItemCallback,
     PaymentCallback,

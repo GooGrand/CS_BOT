@@ -5,7 +5,7 @@ from state_list import item, expenses
 from db import DataBase
 from all_kb import (
     EXPENSES,
-    select_item_markup,
+    create_markup,
     select_item_buttons,
     ItemCallback,
     PaymentCallback,

@@ -9,12 +9,14 @@ from all_kb import (
 
 import handlers.master.sell_handler
 import handlers.master.stats_handler
+import handlers.master.discounters_handler
 
 router = Router()
 
 
 router.include_router(sell_handler.router)
 router.include_router(stats_handler.router)
+router.include_router(discounters_handler.router)
 
 @router.message(F.text == BACK)
 async def stats(message: Message, state: FSMContext):

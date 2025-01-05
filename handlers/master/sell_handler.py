@@ -6,7 +6,7 @@ from db import DataBase
 from all_kb import (
     SELL,
     BACK,
-    select_item_markup,
+    create_markup,
     select_item_buttons,
     ItemCallback,
     PaymentCallback,
@@ -24,7 +24,7 @@ async def select_item(message: Message, state: FSMContext):
     await state.update_data(duty_id=duty[2])
     if duty[2] == message.from_user.id:
         buttons = select_item_buttons()
-        markup = select_item_markup(buttons)
+        markup = create_markup(buttons)
         await state.set_state(item.apply)
         await message.answer("Обоснуй че продал", reply_markup=markup)
     else:

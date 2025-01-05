@@ -78,11 +78,27 @@ def select_item_buttons():
     ]
 
 
-def select_item_markup(items):
+def create_markup(items):
     return InlineKeyboardMarkup(
         inline_keyboard=items,
         resize_keyboard=True,
     )
+
+class DiscountCallback(CallbackData, prefix="discount"):
+    item_id: int
+
+def discount_buttons():
+    discounters = db.get_discounters()
+    all_items = [
+        InlineKeyboardButton(
+            text=data[1], callback_data=ItemCallback(item_id=data[0]).pack()
+        )
+        for data in items
+    ]
+    return [
+        all_items[i * 2 : (i + 1) * 2] for i in range((len(all_items) + 2 - 1) // 2)
+    ]
+
 
 
 class PaymentCallback(CallbackData, prefix="payment"):
