@@ -21,8 +21,6 @@ router = Router()
 
 db = DataBase()
 
-
-
 @router.message(F.text == EXPENSES)
 async def select_expense(message: Message, state: FSMContext):
     # duty = db.get_active_duty()
@@ -33,8 +31,8 @@ async def select_expense(message: Message, state: FSMContext):
     #     await message.answer("Обоснуй че продал", reply_markup=markup)
     # else:
     #     await message.answer("Не твоя смена")
-    await message.answer("на что потратили", reply_markup=expense_kb)
     await state.set_state(expenses.apply)
+    await message.answer("на что потратили", reply_markup=expense_kb)
 
 
 @router.callback_query(ExpensesCallback.filter(), expenses.apply)
@@ -56,6 +54,6 @@ async def amount_expense(message: Message, state: FSMContext):
 @router.message(expenses.comment)
 async def confirm_expense(message: Message, state: FSMContext):
     data = await state.get_data()
-    db.insert_expense(data["expense"], int(data["amount"]), message.text)
+    db.insert_expense(message.from_user.id, data["expense"], int(data["amount"]), message.text)
     await state.set_state(None)
     await message.answer("хрш хрш браза")

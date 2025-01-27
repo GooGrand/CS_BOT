@@ -13,6 +13,7 @@ class reserve_form(StatesGroup):
 
 
 class item(StatesGroup):
+    discounters = State()
     apply = State()
     payment = State()
     comment = State()

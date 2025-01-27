@@ -21,8 +21,10 @@ db = DataBase()
 @router.message(F.text == SELL)
 async def select_item(message: Message, state: FSMContext):
     duty = db.get_active_duty()
-    await state.update_data(duty_id=duty[2])
-    if duty[2] == message.from_user.id:
+    if duty is None:
+        await message.answer("Смену открой придурок")
+    await state.update_data(duty_id=duty[0])
+    if duty[1] == message.from_user.id:
         buttons = select_item_buttons()
         markup = create_markup(buttons)
         await state.set_state(item.apply)

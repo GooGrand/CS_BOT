@@ -11,8 +11,7 @@ router = Router()
 
 @router.message(Command("start"))
 async def start(message: Message, state: FSMContext):
-    master_id = db.get_hookah_master(message.from_user.id)
-    if master_id is not None:
+    if db.get_hookah_master(message.from_user.id):
         # await state.update_data(master_id=master_id)
         # update duty if exists
         await message.answer("Здарова мистер кальянщик", reply_markup=master_kb)
