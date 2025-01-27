@@ -4,7 +4,9 @@ from aiogram.fsm.context import FSMContext
 from state_list import item
 from db import DataBase
 from all_kb import (
-    D,
+    DISCOUNTERS,
+    DiscountCallback,
+    ExpensesCallback,
     BACK,
     create_markup,
     discount_buttons,
@@ -22,19 +24,23 @@ db = DataBase()
 @router.message(F.text == DISCOUNTERS)
 async def select_item(message: Message, state: FSMContext):
     duty = db.get_active_duty()
-    await state.update_data(duty_id=duty[2])
-    if duty[2] == message.from_user.id:
+    if duty is None:
+        await message.answer("Смену открой придурок")
+    await state.update_data(duty_id=duty[0])
+    if duty[1] == message.from_user.id:
         buttons = discount_buttons()
         markup = create_markup(buttons)
-        await message.answer("Обоснуй че продал", reply_markup=markup)
+        await state.set_state(item.discounters)
+        await message.answer("Выборы выборы...", reply_markup=markup)
     else:
         await message.answer("Не твоя смена")
 
 
 @router.callback_query(DiscountCallback.filter())
 async def apply_expense(
-    query: CallbackQuery, state: FSMContext, callback_data: ExpensesCallback
+    query: CallbackQuery, state: FSMContext, callback_data: DiscountCallback
 ):
     data = await state.get_data()
-    db.insert_buy(callback_data["item_id"], data["master_id"], 'transfer', '')
-    await message.answer("Имей сто рублей")
+    db.insert_buy(callback_data.item_id, query.from_user.id, 'transfer', '', callback_data.name)
+    await state.set_state(None)
+    await query.message.answer("Имей сто рублей")

@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram import types
 from state_list import reserve_form
-from all_kb import confirm_kb, start_kb, get_phone_kb, get_date_kb
+from all_kb import confirm_kb, start_kb, get_phone_kb, get_date_kb, DateCallback
 from db import DataBase
 from aiogram.filters.callback_data import CallbackData
 from aiogram.filters import Command
@@ -68,16 +68,18 @@ async def phone(message: Message, state: FSMContext):
 @router.message(reserve_form.amount)
 async def amount(message: Message, state: FSMContext):
     await state.update_data(amount=message.text)
+    await state.set_state(reserve_form.date)
     await message.answer(
         "Введите дату брони (не более недели вперед) в формате дд.мм.гггг:",
         reply_markup=get_date_kb(),
     )
-    await state.set_state(reserve_form.date)
 
 
-@router.message(reserve_form.date)
-async def date(message: Message, state: FSMContext):
-    await state.update_data(date=message.text)
+@router.callback_query(DateCallback.filter(), reserve_form.date)
+async def date(
+    query: CallbackQuery, state: FSMContext, callback_data: DateCallback
+):
+    await state.update_data(date=callback_data.date)
     await message.answer("Введите время брони:")
     await state.set_state(reserve_form.time)
 

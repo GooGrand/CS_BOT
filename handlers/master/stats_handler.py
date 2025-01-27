@@ -9,7 +9,9 @@ from all_kb import (
     BACK,
     SEE_INCOME,
     OPEN,
+    MONTH_EARN,
     GET_MONTH_SALARY,
+    GET_LAST_MONTH_SALARY,
     master_kb,
     stats_kb,
 )
@@ -25,57 +27,71 @@ async def stats(message: Message, state: FSMContext):
 
 @router.message(F.text == SEE_INCOME)
 async def see_day_income(message: Message, state: FSMContext):
-    data = await state.get_data()
-    if "duty_id" in data:
-        hookahs = db.get_master_data(data["master_id"], data["duty_id"])
-        if hookahs is not None:
-            salary = hookahs[0] - 1000 + 1250 if hookahs[1] > 10 else 1250
-            await message.answer(f"Кароче: Каликов {hookahs[1]}, заработал: {salary}")
-        else:
-            await message.answer("Походу нихуя не было еще")
+    duty = db.get_active_duty()
+    data = db.get_master_data(duty[0])
+    if data is not None:
+        salary = data[0] - 1000 + 1250 if data[1] > 10 else 1250
+        await message.answer(f"Кароче: Каликов {data[1]}, Чай: {data[3]} заработал: {salary + data[2]}")
     else:
-        await message.answer("Смена не твоя вроде")
+        await message.answer("Походу нихуя не было еще")
+
+
+@router.message(F.text == MONTH_EARN)
+async def see_month_earn(message: Message, state: FSMContext):
+    earn = db.get_earn()
+    expences = db.get_expences()
+    if earn is not None:
+        await message.answer(f"Грязного: {earn[0]}\n Траты: {expences[0]}\n Чистая: {earn[0] - expences[0]}")
+    else:
+        await message.answer("Походу нихуя не было еще")
 
 @router.message(F.text == ITEMS_TODAY)
 async def items_today(message: Message, state: FSMContext):
-    data = await state.get_data()
-    if "duty_id" in data:
-        items = db.get_items_today(data["duty_id"])
-        res = [f"{name} -- {price} -- {comment}" for name, price, comment in items]
-        await message.answer(f"Продажи: \n {"\n".join(res)}")
-    else:
-        await message.answer("Смена не твоя вроде")
+    duty = db.get_active_duty()
+    items = db.get_items_today(duty[0])
+    res = [f"{name} -- {price} -- {comment if discounter is None else discounter}" for name, price, comment, discounter in items]
+    await message.answer(f"Продажи: \n {"\n".join(res)}")
 
 
 @router.message(F.text == OPEN)
 async def open_duty(message: Message, state: FSMContext):
     duty = db.get_active_duty()
-    master_id = db.get_hookah_master(message.from_user.id)
-
-    if duty is not None and duty[1] == master_id:
-        await state.update_data(master_id=master_id, duty_id=duty[0])
+    if duty is not None and duty[1] == message.from_user.id:
+        await state.update_data(master_id=message.from_user.id, duty_id=duty[0])
         await message.answer("Ты нахуя дважды смену открываешь додик")
-    # elif duty is not None and duty[1] != data["master_id"]:
-    #     await message.answer("Додик не закрыл предыдущую смену, так что иди нахуй")
+    elif duty is not None:
+        await message.answer("На смену уже кто то вышел")
     else:
         try:
-            db.open_duty(master_id)
+            db.open_duty(message.from_user.id)
             id = db.get_active_duty()
-            await state.update_data(master_id=master_id, duty_id=id[0])
+            await state.update_data(master_id=message.from_user.id, duty_id=id[0])
             await message.answer("Удачной смены нахуй", reply_markup=master_kb)
         except Exception as error:
             print("An exception occurred:", error)
-            await message.answer("А ты че нахуй, не твоя смена, съебал отсюда")
+            await message.answer("Какая то залупа произошла: ", error)
 
 
 @router.message(F.text == GET_MONTH_SALARY)
 async def get_month_salary(message: Message):
     data = db.get_month_salary()
-    print(data)
     if len(data) > 0:
         res = [f"{name}: {salary}" for name, salary in data]
         await message.answer(
             f"""Зарплата за месяц:\n{"\n".join(res)}"""
+        )
+    else:
+        await message.answer(
+            """Пока нечего считать"""
+        )
+
+@router.message(F.text == GET_LAST_MONTH_SALARY)
+async def get_last_month_salary(message: Message):
+    data = db.get_last_month_salary()
+    if len(data) > 0:
+        res = [f"{name}: {salary}" for name, salary in data]
+        await message.answer(
+            f"""Зарплата за прошлый месяц:\n{"\n".join(res)}"""
         )
     else:
         await message.answer(

@@ -35,11 +35,13 @@ DISCOUNTERS = "Господа пидарасы"
 STATS = "Статистика"
 OPEN = "Начать смену"
 
-EXPENSES = "записать траты"
+EXPENSES = "Записать траты"
 
 GET_MONTH_SALARY = "Подглядеть зп"
+GET_LAST_MONTH_SALARY = "Подглядеть зп за прошлый месяц"
 ITEMS_TODAY = "Продажи сегодня"
 SEE_INCOME = "Скока седня"
+MONTH_EARN = "Прибыль за месяц"
 BACK = "Назад"
 # CLOSE = "Закрыть смену"
 
@@ -53,9 +55,14 @@ master_kb = ReplyKeyboardMarkup(keyboard=master_buttons, resize_keyboard=True)
 stats_buttons = [
     [
         KeyboardButton(text=GET_MONTH_SALARY),
+        KeyboardButton(text=GET_LAST_MONTH_SALARY),
         KeyboardButton(text=ITEMS_TODAY),
     ],
-    [KeyboardButton(text=BACK), KeyboardButton(text=SEE_INCOME)],
+    [
+        KeyboardButton(text=BACK),
+        KeyboardButton(text=SEE_INCOME),
+        KeyboardButton(text=MONTH_EARN)
+    ],
 ]
 
 stats_kb = ReplyKeyboardMarkup(keyboard=stats_buttons, resize_keyboard=True)
@@ -86,14 +93,15 @@ def create_markup(items):
 
 class DiscountCallback(CallbackData, prefix="discount"):
     item_id: int
+    name: str
 
 def discount_buttons():
     discounters = db.get_discounters()
     all_items = [
         InlineKeyboardButton(
-            text=data[1], callback_data=ItemCallback(item_id=data[0]).pack()
+            text=data[1], callback_data=DiscountCallback(item_id=data[0], name=data[1]).pack()
         )
-        for data in items
+        for data in discounters
     ]
     return [
         all_items[i * 2 : (i + 1) * 2] for i in range((len(all_items) + 2 - 1) // 2)
@@ -172,6 +180,7 @@ get_phone_kb = ReplyKeyboardMarkup(
     keyboard=get_phone_button, resize_keyboard=True, one_time_keyboard=True
 )
 
+
 date_buttons = [
     [
         InlineKeyboardButton(text="Понедельник", callback_data="date"),
@@ -186,7 +195,8 @@ date_buttons = [
 date_kb = InlineKeyboardMarkup(inline_keyboard=date_buttons)
 
 days_of_week = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вск"]
-
+class DateCallback(CallbackData, prefix="date"):
+    date: str
 
 def get_date_kb():
     today = datetime.now()
@@ -200,33 +210,33 @@ def get_date_kb():
         [
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[0].weekday()]}({dates_this_week[0].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[0]),
             ),
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[1].weekday()]}({dates_this_week[1].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[1]),
             ),
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[2].weekday()]}({dates_this_week[2].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[2]),
             ),
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[3].weekday()]}({dates_this_week[3].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[3]),
             ),
         ],
         [
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[4].weekday()]}({dates_this_week[4].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[4]),
             ),
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[5].weekday()]}({dates_this_week[5].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[5]),
             ),
             InlineKeyboardButton(
                 text=f"{days_of_week[dates_this_week[6].weekday()]}({dates_this_week[6].strftime('%m-%d')})",
-                callback_data="date",
+                callback_data=DateCallback(date=dates_this_week[6]),
             ),
         ],
     ]

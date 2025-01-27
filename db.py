@@ -21,22 +21,35 @@ class DataBase:
                 cursor.execute("""select item_id, name, price from items""")
                 return cursor.fetchall()
 
-    def get_master_data(self, master_id, duty_id):
+    def get_discounters(self):
+        with self.connection as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""select item_id, name from discounted_users""")
+                return cursor.fetchall()
+
+    def get_master_data(self, duty_id):
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """with ts as (select opened_at, coalesce(closed_at, timezone('utc', now())) as closed_at from duties where id = %s) 
-            select sum(100), count(*) 
+                    """with ts as (select opened_at, coalesce(closed_at, timezone('utc', now()::timestamp)) as closed_at from duties where id = %s),
+                    tea as (
+                        select coalesce(sum(50), 0) as sum, count(*) 
                     from items_purchased T 
                         left join items 
                                on items.item_id = T.item_id 
-                    where T.master = %s
-                               and T.item_id < 5 
+                    where T.item_id = 7 
+                               and created_at < (select closed_at from ts) 
+                               and created_at >= (select opened_at from ts)
+                    ) 
+            select sum(100), count(*), (select sum from tea), (select count from tea)
+                    from items_purchased T 
+                        left join items 
+                               on items.item_id = T.item_id 
+                    where T.item_id < 5 
                                and created_at < (select closed_at from ts) 
                                and created_at >= (select opened_at from ts)""",
                     (
                         duty_id,
-                        master_id,
                     ),
                 )
                 return cursor.fetchone()
@@ -46,25 +59,27 @@ class DataBase:
     # AND closed_at < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
     # """
 
-    def insert_buy(self, item_id, master_id, payment, comment):
+    def insert_buy(self, item_id, master_tg_id, payment, comment, discount_id = None):
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """insert into items_purchased (item_id, master, amount, comment, payment) values(%s, %s, 1, %s, %s)""",
+                    """insert into items_purchased (item_id, tg_id, amount, comment, payment, discount_id) values(%s, %s, 1, %s, %s, %s)""",
                     (
                         item_id,
-                        master_id,
+                        master_tg_id,
                         comment,
                         payment,
+                        discount_id
                     ),
                 )
 
-    def insert_expense(self, expense, amount, comment):
+    def insert_expense(self, tg_id, expense, amount, comment):
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """insert into expenses (expense, amount, comment, datetime) values(%s, %s, %s, now())""",
+                    """insert into expences (tg_id, expense, amount, comment) values(%s, %s, %s, %s)""",
                     (
+                        tg_id,
                         expense,
                         amount,
                         comment,
@@ -75,27 +90,26 @@ class DataBase:
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """select user_id from masters where tg_id = %s""", (tg_id,)
+                    """select 1 from masters where tg_id = %s""", (tg_id,)
                 )
                 rows = cursor.fetchone()
                 if rows is not None:
-                    return rows[0]
+                    return True
                 else:
-                    return None
+                    return False
 
-    def open_duty(self, master_id):
+    def open_duty(self, master_tg_id):
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """insert into duties (master) values (%s)""", (master_id,)
+                    """insert into duties (tg_id) values (%s)""", (master_tg_id,)
                 )
 
     def get_active_duty(self):
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """select id, master, tg_id from duties
-                        left JOIN masters ON duties.master=masters.user_id
+                    """select id, tg_id from duties
                          where closed_at is null
                         """
                 )
@@ -105,7 +119,7 @@ class DataBase:
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """update duties set closed_at = now() where closed_at is null;""",
+                    """update duties set closed_at = now()::timestamp where closed_at is null;""",
                 )
 
     def insert_reserve(self, tg_id, amount, date, comment):
@@ -121,10 +135,38 @@ class DataBase:
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """SELECT  name, SUM(salary) FROM duties
-                    LEFT JOIN masters On duties.master = masters.user_id
+                    """SELECT name, SUM(salary) FROM duties
+                    LEFT JOIN masters On duties.tg_id = masters.tg_id
                     WHERE opened_at >= DATE_TRUNC('month', CURRENT_DATE)
                     AND closed_at < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+                    GROUP BY name""",
+                )
+                return cursor.fetchall()
+
+    def get_earn(self):
+        with self.connection as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT sum(price) from items_purchased left join items on items.item_id = items_purchased.item_id where created_at < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' and created_at >= DATE_TRUNC('month', CURRENT_DATE)""",
+                )
+                return cursor.fetchone()
+
+    def get_expences(self):
+        with self.connection as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT sum(amount) from expences where datetime < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month' and datetime >= DATE_TRUNC('month', CURRENT_DATE)""",
+                )
+                return cursor.fetchone()
+
+    def get_last_month_salary(self):
+        with self.connection as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """SELECT name, SUM(salary) FROM duties
+                    LEFT JOIN masters On duties.tg_id = masters.tg_id
+                    WHERE opened_at >= DATE_TRUNC('month', CURRENT_DATE - interval '1 month')
+                    AND closed_at < DATE_TRUNC('month', CURRENT_DATE)
                     GROUP BY name""",
                 )
                 return cursor.fetchall()
@@ -133,11 +175,11 @@ class DataBase:
         with self.connection as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    """ with ts as (select opened_at, coalesce(closed_at, timezone('utc', now())) as closed_at from duties where id = %s)
-                    SELECT name, price, comment FROM items_purchased
+                    """ with ts as (select opened_at, coalesce(closed_at, timezone('utc', now()::timestamp)) as closed_at from duties where id = %s)
+                    SELECT name, price, comment, discount_id FROM items_purchased
                     LEFT JOIN items on items_purchased.item_id = items.item_id
                     WHERE created_at >= (select opened_at from ts)
-                    AND created_at < (select closed_at from ts)""",
+                    AND created_at < (select closed_at from ts) order by created_at asc""",
                     (duty_id,),
                 )
                 return cursor.fetchall()

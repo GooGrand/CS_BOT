@@ -32,8 +32,10 @@ db = DataBase()
 @router.message(F.text == SELL)
 async def select_item(message: Message, state: FSMContext):
     duty = db.get_active_duty()
-    await state.update_data(duty_id=duty[2])
-    if duty[2] == message.from_user.id:
+    if duty is None:
+        await message.answer("Смену открой придурок")
+    await state.update_data(duty_id=duty[0])
+    if duty[1] == message.from_user.id:
         buttons = select_item_buttons()
         markup = create_markup(buttons)
         await state.set_state(item.apply)
@@ -104,10 +106,9 @@ async def items_today(message: Message, state: FSMContext):
 @router.message(F.text == OPEN)
 async def open_duty(message: Message, state: FSMContext):
     duty = db.get_active_duty()
-    master_id = db.get_hookah_master(message.from_user.id)
 
-    if duty is not None and duty[1] == master_id:
-        await state.update_data(master_id=master_id, duty_id=duty[0])
+    if duty is not None and duty[1] == message.from_user.id:
+        await state.update_data(master_id=message.from_user.id, duty_id=duty[0])
         await message.answer("Ты нахуя дважды смену открываешь додик")
     # elif duty is not None and duty[1] != data["master_id"]:
     #     await message.answer("Додик не закрыл предыдущую смену, так что иди нахуй")
@@ -115,7 +116,7 @@ async def open_duty(message: Message, state: FSMContext):
         try:
             db.open_duty(master_id)
             id = db.get_active_duty()
-            await state.update_data(master_id=master_id, duty_id=id[0])
+            await state.update_data(master_id=message.from_user.id, duty_id=id[0])
             await message.answer("Удачной смены нахуй", reply_markup=master_kb)
         except Exception as error:
             print("An exception occurred:", error)

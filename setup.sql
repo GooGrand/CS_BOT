@@ -11,7 +11,7 @@ create table
 
 create table
     if not exists masters (
-        tg_id bigint not null,
+        tg_id bigint not null unique,
         name text not null,
         surname text not null,
         phone text not null
@@ -19,7 +19,7 @@ create table
 
 create table
     if not exists admins (
-        tg_id bigint not null,
+        tg_id bigint not null unique,
         name text not null,
         surname text not null,
         phone text not null
@@ -66,6 +66,13 @@ create table
 
 CREATE TYPE payment_type AS ENUM ('cash', 'transfer');
 
+
+create table
+    if not exists discounted_users (
+        name        text         not null unique,
+        item_id     int          not null references items(item_id)
+    );
+
 create table
     if not exists items_purchased (
         created_at      timestamp       not null default now (),
@@ -87,19 +94,19 @@ create table
 );
 
 create table
-    if not exists expenses (
+    if not exists expences (
         id serial primary key,
-        tg_id  int not null references admins(tg_id),
+        tg_id bigint not null references masters(tg_id),
         expense expense_type not null,
         amount int not null, -- final price
         comment text not null, 
-        datetime timestamp not null
+        datetime timestamp not null default now()
     );
 
 create table
     if not exists duties (
         id serial primary key,
-        tg_id bigint not null references masters (user_id),
+        tg_id bigint not null references masters (tg_id),
         opened_at timestamp not null default now (),
         closed_at timestamp null,
         salary int
@@ -115,13 +122,24 @@ SELECT count(*) as hookahs from items_purchased
 CREATE OR REPLACE FUNCTION count_salary() RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.salary is not NUll then RETURN NULL; end if;
+    IF NEW.closed_at is NUll then RETURN NULL; end if;
     with ts as(SELECT count(*) as hookahs from items_purchased  
-    where item_id <5  
-    and created_at >= NEW.opened_at 
-    and created_at < NEW.closed_at
-    and master = NEW.master)
+        where item_id <5  
+        and created_at >= NEW.opened_at 
+        and created_at < NEW.closed_at
+        ),
+    tea as (
+        SELECT sum(50) from items_purchased  
+        where item_id = 7  
+        and created_at >= NEW.opened_at 
+        and created_at < NEW.closed_at
+    )
     UPDATE "duties"
-    SET salary = (select greatest(1250, hookahs * 100 + 250) as salary from ts) where id = NEW.id;
+    SET salary = (
+        select 
+            greatest(1250, hookahs * 100 + 250) 
+            as salary from ts) + (select coalesce(sum, 0) from tea) 
+            where id = NEW.id;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -130,14 +148,6 @@ CREATE TRIGGER salary_count
 After update ON duties
 FOR EACH ROW
 EXECUTE FUNCTION count_salary();
-
-create table
-    if not exists presets (
-        id      serial  primary key,
-        user_id UUID    not null,
-        item_id int     not null,
-        comment text    not null
-    );
 
 insert into
     items (name, price)
@@ -173,6 +183,11 @@ insert into
     items (name, price)
 values
     ('Чай', 200);
+
+insert into
+    items (name, price)
+values
+    ('PS5', 200);
 
 
     SELECT SUM(salary) FROM duties
@@ -216,10 +231,4 @@ create table
         income      int          not null,
         expenses    int          not null,
         salary      int          not null
-    );
-
-create table
-    if not exists discounted_users (
-        name        text         not null unique,
-        item_id     int          not null references items(item_id)
     );
